@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mactop 調査結果</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --red: #f85149;
+      --yellow: #d29922;
+      --purple: #db6pac;
+      --purple: #db61aa;
+      --cyan: #39c5cf;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", Meiryo, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 24px; }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+    h1 { font-size: 26px; margin: 0 0 8px; color: #fff; }
+    .subtitle { color: var(--muted); font-size: 14px; }
+    h2 {
+      font-size: 20px;
+      color: var(--accent);
+      border-left: 3px solid var(--accent);
+      padding-left: 12px;
+      margin-top: 32px;
+    }
+    h3 { font-size: 16px; color: #e6edf3; margin-bottom: 4px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 16px 0;
+    }
+    .tag {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-right: 6px;
+    }
+    .tag-primary { background: rgba(88,166,255,.15); color: var(--accent); }
+    .tag-fallback { background: rgba(210,153,34,.15); color: var(--yellow); }
+    .tag-cpu { background: rgba(63,185,80,.15); color: var(--green); }
+    .tag-mem { background: rgba(218,54,51,.15); color: var(--red); }
+    .tag-temp { background: rgba(219,97,170,.15); color: var(--purple); }
+    code {
+      font-family: "SF Mono", "Fira Code", Menlo, monospace;
+      background: rgba(110,118,129,.2);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #e6edf3;
+    }
+    .path { color: var(--cyan); font-family: monospace; }
+    .file-row { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .formula {
+      font-family: monospace;
+      background: rgba(57,197,207,.1);
+      border: 1px solid rgba(57,197,207,.25);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--cyan);
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--accent); font-weight: 600; }
+    td code { font-size: 12px; }
+    .chain { font-family: monospace; font-size: 13px; }
+    .arrow { color: var(--muted); margin: 0 4px; }
+    .note { color: var(--muted); font-size: 13px; margin-top: 8px; }
+    footer {
+      border-top: 1px solid var(--border);
+      margin-top: 40px;
+      padding-top: 16px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>mactop 調査結果</h1>
+      <div class="subtitle">macOS システム監視 CLI/TUI の表示値のソースと計算式を特定した調査メモ</div>
+    </header>
+
+    <h2>概要</h2>
+    <div class="card">
+      <p>
+        <code>mactop</code> は macOS のシステム監視ツール。cgo を用いて IOKit / CoreFoundation /
+        mach / libproc / SMC / IOReport を直接呼び出し、GPU・DRAM・CPU・メモリ・温度・ファン・バッテリー・ネットワークなどを取得している。
+        本調査では、表示される「GPU 利用率」「GPU DRAM バンド幅」「プロセス別メモリサイズ」の正確なソースと計算式を特定した。
+      </p>
+    </div>
+
+    <h2>重要なファイル</h2>
+    <div class="card">
+      <table>
+        <tr><th>ファイル</th><th>役割</th></tr>
+        <tr>
+          <td><span class="path">internal/app/ioreport.m</span></td>
+          <td>IOReport / CoreWLAN / SMC / HID のサンプリング。GPU / DRAM / 電力 / ANE のロジック。<b>主要なソース</b></td>
+        </tr>
+        <tr>
+          <td><span class="path">internal/app/ioreport.go</span></td>
+          <td>Go ラッパー。SocMetrics 構造体定義、<code>sampleSocMetrics</code>（C 構造体→Go 変換・GB/s 計算）</td>
+        </tr>
+        <tr>
+          <td><span class="path">internal/app/processes.go</span></td>
+          <td>プロセス別メモリ / CPU / GPU（kinfo_proc + <code>proc_pidinfo</code>）</td>
+        </tr>
+        <tr>
+          <td><span class="path">internal/app/native_stats.go</span></td>
+          <td>プロセス別 GPU 統計、ネットワーク、misc 原生ヘルパー</td>
+        </tr>
+        <tr>
+          <td><span class="path">internal/app/metrics.go</span></td>
+          <td>Prometheus レジストリ + 指標名</td>
+        </tr>
+        <tr>
+          <td><span class="path">internal/app/processes_helpers.go</span></td>
+          <td>テーマ/色ヘルパー</td>
+        </tr>
+      </table>
+    </div>
+
+    <h2>1. GPU 利用率 (<code>gpuActive</code>, %)</h2>
+    <div class="card">
+      <p><span class="tag tag-primary">一次ソース</span></p>
+      <h3>出どころ</h3>
+      <p>IOReport の <code>"GPU Stats"</code> / <code>"GPU Performance States"</code> サブグループ、チャネル <code>GPUPH</code>（状態チャネル）。</p>
+      <h3>計算式</h3>
+      <p>
+        <span class="formula">gpuActive = activeTime / totalTime × 100</span>
+      </p>
+      <p>active = OFF / IDLE / DOWN を除く状態の合計（<span class="path">ioreport.m:2756-2789</span>）。</p>
+      <h3>プロセス別 GPU% の表示</h3>
+      <p>
+        <span class="formula">表示値 = gpuMsPerSec / 10</span>
+        （<span class="path">buildProcessRows:501</span>。1000 ms/s = 100%）
+      </p>
+    </div>
+
+    <h2>2. GPU DRAM バンド幅 (<code>dramReadBytes</code> / <code>dramWriteBytes</code>)</h2>
+    <div class="card">
+      <p><span class="tag tag-primary">一次ソース</span> <span class="tag tag-fallback">バックアップチェーン</span></p>
+      <h3>一次: AMC Stats の DCS チャネル</h3>
+      <p>
+        <span class="chain">正確な集計 DCS → パーティション DCS → クライアント DCS</span>
+      </p>
+      <p>RD/WR の分割は <code>amcChannelDirection</code>（<span class="path">ioreport.m:2934-2974</span>）:</p>
+      <ul>
+        <li><code>RD+WR</code> / <code>RW</code> = 両方（combined）</li>
+        <li><code>RD</code> = read</li>
+        <li><code>WR</code> = write</li>
+      </ul>
+      <h3>バックアップ（AMC Stats が無い場合）</h3>
+      <table>
+        <tr><th>順位</th><th>ソース</th><th>行</th></tr>
+        <tr><td>1</td><td>PMP "DRAM BW"</td><td><span class="path">ioreport.m:3214-3223</span></td></tr>
+        <tr><td>2</td><td>電力から算出する推定（較正済み DRAM 電力）</td><td><span class="path">ioreport.m:3252-3269</span></td></tr>
+        <tr><td>3</td><td>kperf PMU（root 権限）</td><td><span class="path">ioreport.m:3271-3278</span></td></tr>
+        <tr><td>4</td><td>AMC リクエストカウンタ</td><td><span class="path">ioreport.m:3283-3288</span></td></tr>
+      </table>
+      <h3>バイト → GB/s の変換</h3>
+      <p>
+        Go が <span class="formula">bytes / intervalSec / 1e9</span> で GB/s に変換する。
+        <code>intervalSec</code> は <code>actualDurationNs</code>（2つの IOReport スナップショットを取り囲んで
+        <code>mach_absolute_time</code> で取得した実wall-clock 間隔）。これは schedulering ジッターに依存しない正確な値。
+        （<span class="path">ioreport.go:195-213</span>）
+      </p>
+    </div>
+
+    <h2>3. プロセス別メモリ</h2>
+    <div class="card">
+      <p><span class="tag tag-mem">プロセス別メモリ</span></p>
+      <h3>出どころ</h3>
+      <p><span class="path">processes.go:109-116</span> の <code>proc_pidinfo(PROC_PIDTASKINFO)</code> から取得:</p>
+      <table>
+        <tr><th>項目</th><th>フィールド</th><th>単位</th></tr>
+        <tr><td>RSS</td><td><code>pti_resident_size</code></td><td>KiB</td></tr>
+        <tr><td>VSZ</td><td><code>pti_virtual_size</code></td><td>KiB</td></tr>
+      </table>
+      <h3>計算式</h3>
+      <ul>
+        <li><span class="formula">RSS bytes = rssBytes / 1024</span></li>
+        <li><span class="formula">VSZ bytes = vszBytes / 1024</span></li>
+        <li><span class="formula">Mem% = rssBytes / totalMem × 100</span>（<code>totalMem</code> は sysctl {6,24} から）</li>
+        <li><span class="formula">CPU% = (user + system ticks を mach timebase で取得) / wallDelta × 100</span></li>
+      </ul>
+      <p>
+        <span class="note">注: <code>top</code> や <code>/proc</code> とはソースが異なり、libproc + mach VM を通じて直接取得している。</span>
+      </p>
+    </div>
+
+    <h2>4. プロセス別 GPU</h2>
+    <div class="card">
+      <p><span class="tag tag-primary">ソース</span></p>
+      <p><span class="path">native_stats.go:1296</span> の <code>GetGPUProcessStats()</code> が <code>get_gpu_process_stats()</code> を呼び出し、
+        <code>pid → gpu_time_ns</code> を返す。</p>
+      <h3>計算式</h3>
+      <ul>
+        <li>2つのサンプル間のdelta（経過秒数）で ms/s に変換</li>
+        <li><span class="formula">スケール係数 = systemGpuPercent / rawTotalPercent</span>（生合計%）で補正</li>
+        <li>プロセス別%の合計がシステム GPU% に一致するように補正</li>
+      </ul>
+      <p>（<span class="path">updateProcessGPUMetrics:258-297</span>）</p>
+      <h3>表示</h3>
+      <p><span class="formula">表示 GPU% = gpuMsPerSec / 10</span>（<span class="path">buildProcessRows:501</span>）。</p>
+    </div>
+
+    <h2>5. 電力 / 温度 / 熱状態</h2>
+    <div class="card">
+      <h3>電力</h3>
+      <p>IOReport Energy Model チャネル（GPU Energy, CPU Energy, DRAM, ANE）+ SMC "PSTR" で systemPower（<span class="path">ioreport.m:2699-2750, 3299-3301</span>）。</p>
+      <h3>温度</h3>
+      <p>期待コア数と検証した HID パーコアセンサー、無いと SMC（<span class="path">ioreport.m:3299-3448</span>）。</p>
+      <h3>熱状態</h3>
+      <p>カーネル notify <code>"com.apple.system.thermalpressurelevel"</code>（<span class="path">getThermalState:3519</span>）。</p>
+    </div>
+
+    <h2>6. 採集フロー（GPU/DRAM/電力）</h2>
+    <div class="card">
+      <ol>
+        <li>2つの IOReport スナップショットを取得（<code>usleep(durationMs)</code> 間隔）。</li>
+        <li><code>mach_absolute_time</code> で実間隔 <code>actualDurationNs</code> を取得（<code>IOReportCreateSamples</code> 返り後、post-snapshot 過頭を相殺）。</li>
+        <li><code>IOReportCreateSamplesDelta</code> でデルタを計算し、チャネル配列を取得。</li>
+        <li>チャネルグループごとに解析（Energy Model / GPU Stats / CPU Stats / AMC Stats / PMP）。</li>
+        <li>電力は per-block vs aggregate を考慮し二重カウントを避ける。バイトは DCS 系列の最優先ソース。</li>
+        <li>Go が <code>actualDurationNs</code> で割って GB/s を算出。</li>
+      </ol>
+    </div>
+
+    <footer>
+      調査日: 2026-09-12<br>
+      対象: <span class="path">github.com/metaspartan/mactop/v2</span>
+    </footer>
+  </div>
+</body>
+</html>

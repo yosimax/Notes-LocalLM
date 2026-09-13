@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mactop 調査結果</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --purple: #bc8cff;
+    --orange: #f0883e;
+    --pink: #f778ba;
+    --yellow: #e3b341;
+    --red: #ff7b72;
+    --cyan: #39c5cf;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+  header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+    margin-bottom: 32px;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 8px;
+    color: #fff;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 15px;
+  }
+  h2 {
+    font-size: 20px;
+    margin: 40px 0 16px;
+    padding-left: 14px;
+    border-left: 4px solid var(--accent);
+    color: #fff;
+  }
+  h3 {
+    font-size: 16px;
+    margin: 24px 0 12px;
+    color: var(--accent);
+  }
+  p { margin: 10px 0; }
+  ul { padding-left: 22px; }
+  li { margin: 6px 0; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 13px;
+    color: var(--green);
+  }
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--surface);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  tr:nth-child(even) { background: rgba(22,27,34,0.6); }
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--purple);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .callout strong { color: var(--purple); }
+  .badge {
+    display: inline-block;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+  .b-green { background: rgba(63,185,80,0.15); color: var(--green); }
+  .b-blue { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .b-orange { background: rgba(240,136,62,0.15); color: var(--orange); }
+  .b-pink { background: rgba(247,120,186,0.15); color: var(--pink); }
+  .b-yellow { background: rgba(227,179,65,0.15); color: var(--yellow); }
+  .b-red { background: rgba(255,123,114,0.15); color: var(--red); }
+  .b-cyan { background: rgba(57,197,207,0.15); color: var(--cyan); }
+  .flow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    white-space: pre-wrap;
+    overflow-x: auto;
+  }
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+    margin-top: 48px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .toc a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .toc a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>mactop — 値の表示と導出経路調査</h1>
+  <div class="subtitle">
+    macOS システム監視ツール <code>mactop</code> の表示値がどこから来て、どう計算されるかを追跡した結果
+  </div>
+</header>
+
+<div class="toc">
+  <h2 style="border-left-color: var(--purple); padding-left:0; margin-top:0;">目次</h2>
+  <ul>
+    <li><a href="#overview">概要</a></li>
+    <li><a href="#memory">1. 各プロセスメモリ (VSZ / RSS)</a></li>
+    <li><a href="#cpu">2. 各プロセス CPU%</a></li>
+    <li><a href="#gpu-per-proc">3. 各プロセス GPU</a></li>
+    <li><a href="#gpu-system">4. システム GPU Active%</a></li>
+    <li><a href="#dram">5. GPU DRAM 帯域 (GB/s)</a></li>
+    <li><a href="#system-mem">6. システムメモリ</a></li>
+    <li><a href="#diff">7. top コマンドとの差異</a></li>
+    <li><a href="#files">8. 参照したファイル</a></li>
+  </ul>
+</div>
+
+<h2 id="overview">概要</h2>
+<p><code>mactop</code> は macOS のシステム監視ツール。Go + C(cgo) を組み合わせて、
+IOKit / Mach / IOReport / SMC などの OS 固有の API から各種メトリクスを取得している。</p>
+<p>調査対象:</p>
+<ul>
+  <li>GPU 使用率と GPU DRAM 帯域の表示値と導出元</li>
+  <li>各プロセスメモリサイズ (予約/使用) と、標準 <code>top</code> や <code>/sys/proc</code> 値との違い</li>
+</ul>
+
+<div class="callout">
+  <strong>重要:</strong> <code>/sys/proc/</code> は Linux 固有のパスで、macOS には存在しない。
+  macOS 側でプロセス情報を取得できるのは <code>kinfo_proc</code> (sysctl) と
+  <code>proc_pidinfo(PROC_PIDTASKINFO)</code> のみである。mactop はこれらを基にしている。
+</div>
+
+<h2 id="memory">1. 各プロセスメモリ (VSZ / RSS)</h2>
+<p>導出先: <code>internal/app/processes.go:110</code></p>
+
+<pre><code>func processOsProc(...) (ProcessMetrics, int, ProcessTimeState, bool) {
+    // ...
+    var taskInfo C.struct_proc_taskinfo
+    ret := C.proc_pidinfo(C.int(pid), C.PROC_PIDTASKINFO, 0,
+                        unsafe.Pointer(&taskInfo),
+                        C.int(C.sizeof_struct_proc_taskinfo))
+    if ret == C.int(C.sizeof_struct_proc_taskinfo) {
+        rssBytes = int64(taskInfo.pti_resident_size)   // RSS
+        vszBytes = int64(taskInfo.pti_virtual_size)     // VSZ
+        rawTime  = uint64(taskInfo.pti_total_user) +
+                   uint64(taskInfo.pti_total_system)
+        // ...
+    }
+    // ...
+    pm := ProcessMetrics{
+        VSZ: vszBytes / 1024,
+        RSS: rssBytes / 1024,
+        Memory: memPercent,   // RSS / totalMem * 100
+        // ...
+    }
+}</code></pre>
+
+<table>
+  <tr><th>値</th><th>ソースフィールド</th><th>意味</th></tr>
+  <tr>
+    <td><code>RSS</code></td>
+    <td><code>pti_resident_size</code></td>
+    <td>実在メモリ（物理 RAM を実際に占有している部分）。ページ単位で換算。</td>
+  </tr>
+  <tr>
+    <td><code>VSZ</code></td>
+    <td><code>pti_virtual_size</code></td>
+    <td>仮想アドレス空間の総サイズ（共有メモリを含む）。</td>
+  </tr>
+  <tr>
+    <td><code>Memory</code> 列</td>
+    <td><code>RSS / totalMem</code></td>
+    <td>全メモリに対する該当前プロセスの割合。
+    <code>totalMem</code> は <code>sysctl</code> (<code>KERN_VM_MEMORYSIZE</code>、mib[6].mib[24]) で取得。</td>
+  </tr>
+</table>
+
+<h2 id="cpu">2. 各プロセス CPU%</h2>
+<p>導出先: <code>internal/app/processes.go:114,119</code></p>
+
+<p>Mach タスク情報 API の <code>pti_total_user + pti_total_system</code>（timebase でスケール）を、
+前サンプルまでの時間差分で割って % を計算する。</p>
+
+<div class="flow">totalTimeNs = (pti_total_user + pti_total_system) * numer / denom
+   cpuPercent = (totalTimeNs - prevTime) / wallDelta * 100
+   // wallDelta = now - prevTimestamp (実測の時間間隔)</div>
+
+<p>これは <code>top</code> の全体ロードアベレージからプロセス別に割り当てる方式とは計算元が異なり、
+各プロセスの「CPU に費やした時間」を直接取得できる。</p>
+
+<h2 id="gpu-per-proc">3. 各プロセス GPU</h2>
+<p>導出先: <code>internal/app/processes.go:258-297</code>（<code>updateProcessGPUMetrics</code>）</p>
+
+<h3>データソース</h3>
+<p><code>AGXDeviceUserClient</code>（IORegistry）の <code>AppUsage[]</code> 配列から
+<code>accumulatedGPUTime</code>（ナノ秒、累積値）を取得する。</p>
+
+<pre><code>// Sum all accumulatedGPUTime from AppUsage array
+for each entry in AppUsage:
+    gpuTimeNs = entry["accumulatedGPUTime"]  // 累積 GPU 時間（ns）</code></pre>
+
+<h3>計算式</h3>
+
+<div class="flow">gpuMsPerSec[pid] = (currentTime - prevTime) / gpuElapsed / 1_000_000   // ms/s
+   totalRawGpuMs  = Σ gpuMsPerSec
+   rawTotalPercent = totalRawGpuMs / 10.0
+   scaleFactor    = systemGpuPercent / rawTotalPercent
+   process.GPU    = gpuMs * scaleFactor
+   // scaleFactor: 各プロセスの GPU 時間をシステム全体の GPU 使用率に
+   //              比例して正規化（GPU 使用率を 0-100% に合わせる）</div>
+
+<p>つまり、各プロセスの GPU 使用率は「GPU 時間を ms/s で求め、システム全体の GPU 使用率に
+比例補正」した値になります。</p>
+
+<h2 id="gpu-system">4. システム GPU Active%</h2>
+<p>導出先: <code>internal/app/ioreport.m:2784</code></p>
+
+<p>IOReport の <strong>「GPU Stats」→「GPU Performance States」</strong> グループから、
+パフォーマンス状態のレジデンス（各状態での滞在時間）を解析し、アクティブな状態の割合を計算する。</p>
+
+<pre><code>for each performance state:
+    residency = IOReportStateGetResidency(item, s)
+    name       = IOReportStateGetNameForIndex(item, s)
+
+    totalTime += residency
+    if name not in {OFF, IDLE, DOWN}:
+        activeTime += residency
+// ...
+metrics.gpuActive = activeTime / totalTime * 100.0   // アクティブ率 %
+metrics.gpuFreqMHz = weightedFreq / activeTime        // 平均クロック (MHz)</code></pre>
+
+<p>Go 側では <code>ioreport.go:269</code> で <code>GPUActive</code> を <code>SocMetrics</code> に格納し、
+<code>metrics.go:220-227</code> の <code>gpuMetricsFromSoc</code> で <code>GPUMetrics.ActivePercent</code> へ変換。
+<code>info.go:92</code> で <code>Info_GPUUsage</code> として画面に表示されます。</p>
+
+<h2 id="dram">5. GPU DRAM 帯域 (GB/s)</h2>
+<p>導出先: <code>internal/app/ioreport.m:3148-3288</code></p>
+
+<p>IOReport Energy Model のバイトカウンタを、実測の時間間隔 (<code>actualDurationNs</code>) で割って GB/s に変換します。
+<code>ioreport.go:195-213</code> でこの除算を実行。</p>
+
+<div class="flow">intervalSec = actualDurationNs / 1e9   // 実測時間間隔（秒）
+   dramReadBW    = dramReadBytes    / intervalSec / 1e9   // GB/s
+   dramWriteBW   = dramWriteBytes   / intervalSec / 1e9
+   dramBWCombined= (read+write)     / intervalSec / 1e9</div>
+
+<h3>バイトソースの優先順位（チップ/OS により変動）</h3>
+
+<table>
+  <tr><th>順位</th><th>ソース</th><th>対応チップ</th><th>備考</th></tr>
+  <tr>
+    <td>1</td>
+    <td><strong>AMC DCS</strong> (amcExactDcs*)</td>
+    <td>M1-M4</td>
+    <td>正確なバイト数。優先される主要ソース。</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><strong>PMP DRAM</strong> (pmpDram*)</td>
+    <td>M5+</td>
+    <td>AMC からフォールバック。方向別 / 合計から読み取り推定。</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><strong>電力推定</strong></td>
+    <td>任意</td>
+    <td>DRAM 電力から推定。アイドル電力を差し引いた動的電力 × 校正定数。</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td><strong>kperf PMU</strong></td>
+    <td>任意</td>
+    <td>root 権限を必要。DRAM 帯域を直接計数。</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td><strong>request bytes</strong> (amcRequest*)</td>
+    <td>任意</td>
+    <td>最終手段。fabric 経路を含むため過大計上の可能性。</td>
+  </tr>
+</table>
+
+<p>各ソースの取得詳細は <code>ioreport.m:3148-3288</code> に分岐が記載されています。
+AMC が 0 を返した場合、トラフィックが検出可能ならフォールバックを切り替え、
+必要に応じて PMP チャンネルの確保やバックグラウンド校正が実行されます。</p>
+
+<h2 id="system-mem">6. システムメモリ</h2>
+<p>導出先: <code>internal/app/processes.go:220-226</code></p>
+
+<pre><code>mibMem = {6, 24}   // sysctl KERN_VM_MEMORYSIZE
+sysctl(&mibMem[0], 2, &memSize, &memLen, ...)
+totalMem = uint64(memSize)   // システム全体の物理メモリ (bytes)</code></pre>
+
+<p>これは各プロセスの <code>Memory</code> 割合を計算するための分母です。</p>
+
+<h2 id="diff">7. top コマンドとの差異</h2>
+
+<table>
+  <tr><th>値</th><th>mactop</th><th>標準 top</th><th>差異</th></tr>
+  <tr>
+    <td><code>RSS</code></td>
+    <td><code>proc_pidinfo(PROC_PIDTASKINFO).pti_resident_size</code></td>
+    <td><code>kinfo_proc.ki_rssize</code>（ページ単位）</td>
+    <td>値は同一（実在メモリ）。取得 API が異なる。</td>
+  </tr>
+  <tr>
+    <td><code>VSZ</code></td>
+    <td><code>pti_virtual_size</code></td>
+    <td><code>kinfo_proc.ki_vsize</code></td>
+    <td>値は同一（仮想サイズ）。取得 API が異なる。</td>
+  </tr>
+  <tr>
+    <td><code>Memory</code> 列</td>
+    <td><code>RSS / KERN_VM_MEMORYSIZE</code></td>
+    <td>同様に RSS / 総メモリ</td>
+    <td>計算元はほぼ同一。</td>
+  </tr>
+  <tr>
+    <td><code>CPU%</code></td>
+    <td>プロセス別 Mach タスク情報
+    <br><code>pti_total_user/system</code> の差分</td>
+    <td>全体ロードアベレージからプロセス別に割り当て</td>
+    <td><strong>計算元が異なる。</strong> mactop は各プロセスの CPU 費用工時間を直接取得。</td>
+  </tr>
+  <tr>
+    <td><code>GPU</code></td>
+    <td>GPU 時間
+    <br><code>accumulatedGPUTime</code> の差分</td>
+    <td>GPU クロック / エネルギーモデル</td>
+    <td><strong>計算元が異なる。</strong> mactop は GPU 費用工時間、top はクロック/電力。</td>
+  </tr>
+</table>
+
+<div class="callout">
+  <strong>補足:</strong> <code>/sys/proc/&lt;pid&gt;</code> は Linux 固有で macOS には存在しない。
+  macOS ではプロセス情報を取得できるのは上記の <code>kinfo_proc</code> / <code>proc_pidinfo</code> のみ。
+  mactop はこれらを基に、top と同じ RSS/VSZ を取得しつつ、CPU/GPU は独自の導出方式を採用している。
+</div>
+
+<h2 id="files">8. 参照したファイル</h2>
+<table>
+  <tr><th>ファイル</th><th>役割</th></tr>
+  <tr>
+    <td><code>internal/app/processes.go</code></td>
+    <td>各プロセスメモリ (<code>proc_pidinfo(PROC_PIDTASKINFO)</code>);
+    各プロセス CPU;
+    各プロセス GPU (<code>updateProcessGPUMetrics</code>)</td>
+  </tr>
+  <tr>
+    <td><code>internal/app/native_stats.go</code></td>
+    <td>GPU 統計。
+    <code>AGXDeviceUserClient.AppUsage[].accumulatedGPUTime</code> の取得
+    (<code>ioreport.go</code> の C ブリッジ経由)</td>
+  </tr>
+  <tr>
+    <td><code>internal/app/ioreport.go</code></td>
+    <td>IOReport Energy Model の <code>SocMetrics</code> 取得。
+    DRAM 帯域 (GB/s)、GPU Active、電力、温度、ファン、HID センサーの Go 側処理</td>
+  </tr>
+  <tr>
+    <td><code>internal/app/ioreport.m</code></td>
+    <td>C 実装。GPU Active%、DRAM バイトカウンタのソース選択、
+    電力/温度/ファン/HID の取得。Energy Model のチャンネル解析</td>
+  </tr>
+  <tr>
+    <td><code>internal/app/metrics.go</code></td>
+    <td><code>gpuMetricsFromSoc</code>（<code>SocMetrics</code> → <code>GPUMetrics</code> 変換）
+    などのメトリクス変換</td>
+  </tr>
+  <tr>
+    <td><code>internal/app/types.go</code></td>
+    <td>データ構造体定義
+    <br><code>ProcessMetrics</code> (<code>VSZ, RSS, CPU, GPU, Memory</code>)、
+    <code>GPUMetrics</code> (<code>ActivePercent</code>)、
+    <code>CPUCoreWidget</code> など</td>
+  </tr>
+  <tr>
+    <td><code>internal/app/info.go</code></td>
+    <td>画面表示。
+    <code>Info_GPUUsage</code> を <code>lastGPUMetrics.ActivePercent</code> から描画
+    (<code>info.go:92</code>)</td>
+  </tr>
+</table>
+
+<footer>
+  <p>mactop 調査結果 — 生成日: 2026-09-13</p>
+  <p>調査対象: GPU 使用率・GPU DRAM 帯域・各プロセスメモリサイズの表示値と導出経路</p>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mactop 表示値の導出方法 — 調査結果</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --code-bg: #1c2128;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Hiragino Kaku Gothic ProN", "Segoe UI", sans-serif;
+    line-height: 1.7;
+    font-size: 15px;
+  }
+  .container { max-width: 980px; margin: 0 auto; padding: 32px 24px 64px; }
+  h1 { font-size: 26px; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-top: 0; }
+  h2 { font-size: 20px; margin-top: 36px; color: var(--accent); }
+  h3 { font-size: 16px; margin-top: 24px; color: var(--text); }
+  p, li { color: var(--text); }
+  .meta { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    color: #79c0ff;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 16px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  pre code { background: none; border: none; padding: 0; color: var(--text); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--panel); color: var(--accent); font-weight: 600; }
+  tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .note {
+    border-left: 3px solid var(--accent);
+    background: rgba(88,166,255,0.08);
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin: 12px 0;
+    font-size: 14px;
+  }
+  .warn {
+    border-left: 3px solid var(--yellow);
+    background: rgba(210,153,34,0.08);
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin: 12px 0;
+    font-size: 14px;
+  }
+  .file { color: var(--muted); font-size: 12px; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 4px 0; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc li { margin: 2px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>mactop 表示値の導出方法 — 調査結果</h1>
+<p class="meta">対象リポジトリ: <code>/Users/****/workspace/mactop</code>（Go + Objective-C / cgo）&nbsp;|&nbsp; 調査日: 2026-09-12</p>
+
+<div class="card toc">
+<strong>目次</strong>
+<ol>
+  <li><a href="#s1" style="color:var(--accent);text-decoration:none;">GPU 使用率 (%)</a></li>
+  <li><a href="#s2" style="color:var(--accent);text-decoration:none;">DRAM 帯域 R/W GB/s</a></li>
+  <li><a href="#s3" style="color:var(--accent);text-decoration:none;">プロセス別メモリ</a></li>
+  <li><a href="#s4" style="color:var(--accent);text-decoration:none;">システムメモリ</a></li>
+  <li><a href="#s5" style="color:var(--accent);text-decoration:none;">top / 標準ツールとの差の要点</a></li>
+</ol>
+</div>
+
+<h2 id="s1">1. GPU 使用率 (%)</h2>
+
+<h3>システム全体（info 画面の GPU %）</h3>
+<p>参照元: <strong>IOReport</strong>（Apple 私有 framework、<code>-lIOReport</code> 経由でリンク）→ channel group <code>"GPU Stats"</code> → subgroup <code>"GPU Performance States"</code> → channel <code>"GPUPH"</code></p>
+<p>導出方法: <strong>residency ベース</strong>。各 performance state の滞留時間（<code>IOReportStateGetResidency</code>）をサンプリング窓で集計し、以下を計算:</p>
+<pre><code>active% = (totalTime − OFF/IDLE/DOWN 状態の時間) / totalTime × 100</code></pre>
+<p>つまり「GPU がアクティブなクロック状態だった時間の割合」。ワークロード量やコマンドキュー深さではない。</p>
+<ul>
+  <li>電力: <code>"Energy Model"</code> group の <code>"GPU Energy"</code> チャネル（W）</li>
+  <li>周波数: 各 state 周波数の residency 加重平均（<code>g_gpu_freqs</code> は IOKit voltage-states9 から取得、<code>GetMaxGPUFrequency</code>）</li>
+</ul>
+<p class="file">実装: internal/app/ioreport.m:2751-2790（gpuActive 算出）、3142（gpuPower 確定）</p>
+
+<h3>プロセス別 GPU %</h3>
+<p>参照元: <strong>IOKit AGXAccelerator → 子サービス AGXDeviceUserClient</strong></p>
+<ul>
+  <li>各エントリの <code>accumulatedGPUTime</code> プロパティ（ns 単位の累積 GPU 時間）を読み取り</li>
+  <li>PID は <code>IOUserClientCreator</code>（<code>"pid NNN, WindowServer"</code> 形式）を sscanf で解析</li>
+</ul>
+<p>導出: tick 差で ms/s を算出し、全プロセス合計がシステム GPU% と整合するよう scale 補正（<code>scaleFactor = systemGpuPercent / rawTotalPercent</code>）。表示値は <code>ms/s ÷ 10</code>（1000 ms/s = 100%）。</p>
+<div class="warn"><strong>標準ツールでは取得できない</strong>: AGX（Apple GPU ドライバ）内部カウンタ由来のため、ps / top / sysctl では参照不可。</div>
+<p class="file">実装: internal/app/processes.go:259-297（updateProcessGPUMetrics）、internal/app/native_stats.go:362-403, 1295-1313</p>
+
+<h2 id="s2">2. DRAM 帯域 R/W GB/s</h2>
+<p><code>samplePowerMetrics</code> 内の優先度チェーン（上から順に判定）:</p>
+<table>
+  <thead>
+    <tr><th style="width:36px;">#</th><th>ソース</th><th>内容</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td><strong>AMC Stats</strong>（第一候補）</td>
+      <td>DCS（DRAM コントローラ）通過の正確な R/W バイトカウンタ。複数世代の channel 命名に対応（Exact / Partition / Client、Directional / Combined）</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>PMP DRAM BW</td>
+      <td>AMC が無い/ストール時の rate histogram フォールバック。3 回連続ゼロ + トラフィック推定（<code>fallbackTrafficLikely</code>）で有効化され、1 サンプル非ゼロで再無効化</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><strong>電力ベース推定</strong></td>
+      <td><code>BW = max(0, dramPower − idlePower) × g_dramGBsPerWatt</code>。係数はハードコードでなく、calibThread がバイト数と DRAM 電力 delta を同時計測して実行時キャリブレーション（<code>initKperfDramBW</code> + <code>calibrateDramBwFromPower</code>）。R/W は均等分割（電力では方向を判別できないため）</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>kperf PMU</td>
+      <td>root 必須の最終手段（<code>readKperfDramBW</code>）</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>AMC request bytes</td>
+      <td>fabric パスで過計上リスクのため最下位（物理 DCS ソースが全欠如時の互換フォールバック）</td>
+    </tr>
+  </tbody>
+</table>
+<p>GB/s 化は「bytes ÷ 実測窓」。窓は 2 回の <code>IOReportCreateSamples</code> の前後に取得した <code>mach_absolute_time</code>（<code>actualDurationNs</code>）を使用し、スケジューラジッター下でも Go 側の除算と完全往復一致する。</p>
+<p class="file">実装: internal/app/ioreport.m:3148-3288（優先度チェーン）、700-1150（キャリブレーション機構）</p>
+
+<h2 id="s3">3. プロセス別メモリ</h2>
+<p><code>processOsProc</code>（internal/app/processes.go:84-161）:</p>
+<table>
+  <thead>
+    <tr><th>項目</th><th>参照元</th><th>導出</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>RES (RSS)</strong></td>
+      <td><code>proc_pidinfo(pid, PROC_PIDTASKINFO)</code> → <code>pti_resident_size</code></td>
+      <td><code>ps -o rss</code> や top の RES 列と<strong>同一値</strong>。footprint (MYS+PWT) ではない</td>
+    </tr>
+    <tr>
+      <td><strong>VIRT (VSZ)</strong></td>
+      <td><code>pti_virtual_size</code></td>
+      <td>ps の VSZ と同一</td>
+    </tr>
+    <tr>
+      <td><strong>MEM%</strong></td>
+      <td>RSS ÷ <code>sysctl(CTL_HW, HW_PHYSMEM)</code>（= <code>hw.memsize</code>）× 100</td>
+      <td><strong>物理 RAM 総量</strong>に対する割合（使用量に対する % ではない）</td>
+    </tr>
+    <tr>
+      <td><strong>CPU%</strong></td>
+      <td><code>pti_total_user + pti_total_system</code> の delta（tick→ns は <code>mach_timebase_info</code> で換算）÷ wall-clock delta</td>
+      <td>top / ps と同一アルゴリズム</td>
+    </tr>
+    <tr>
+      <td>プロセス列挙</td>
+      <td><code>sysctl KERN_PROC_ALL</code> → <code>kinfo_proc[]</code></td>
+      <td>macOS には /proc が無いため sysctl を使用。CPU 順ソート後上位 500 プロセスに截断</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="s4">4. システムメモリ</h2>
+<p><code>GetNativeMemoryMetrics</code>（internal/app/native_stats.go:868-912）:</p>
+<pre><code>host_statistics64(HOST_VM_INFO64) → vm_statistics64
+available = free_count + inactive_count   （× pageSize）
+used      = total − available             （total は hw.memsize）
+swap     = sysctl("vm.swapusage")</code></pre>
+<p>vm_stat と同じ計算式。</p>
+
+<h2 id="s5">5. top / 標準ツールとの差の要点</h2>
+<ul>
+  <li>RES / VSZ / CPU% は ps・top と同一 API 系（sysctl KERN_PROC、proc_pidinfo）のため数値は一致する。macOS に /proc は無く、mactop も同様のカーネルインターフェースを使用</li>
+  <li>mactop の RES = <code>pti_resident_size</code> = top の RES 列（footprint / MYS+PWT ではない）</li>
+  <li><strong>異なる点（すべて Apple 内部 API 由来で標準ツール非公開）:</strong>
+    <ul>
+      <li>プロセス別 GPU — AGX ドライバカウンタ</li>
+      <li>GPU active% — IOReport residency</li>
+      <li>DRAM R/W バイト — AMC / PMP 内部カウンタ（電力推定は実行時キャリブレーション）</li>
+      <li>ANE メトリクス — PMP ANE-AF-BW / ANE-DCS-BW floor residency + rate histogram</li>
+    </ul>
+  </li>
+</ul>
+
+<div class="card">
+<strong>主要ファイル</strong>
+<ul>
+  <li><code>internal/app/ioreport.m</code> — GPU / DRAM / Power の中核実装（3549 行）</li>
+  <li><code>internal/app/ioreport.go</code> — IOReport の Go cgo wrapper</li>
+  <li><code>internal/app/processes.go</code> — プロセス列挙・メモリ / CPU% 導出（765 行）</li>
+  <li><code>internal/app/native_stats.go</code> — IOKit AGX / vm_stat / storage（1477 行）</li>
+  <li><code>internal/app/metrics.go</code> — PMP state-residency utilization（macOS 27+ / M5）</li>
+  <li><code>internal/app/info.go</code> — GPU % 表示（<code>lastGPUMetrics.ActivePercent</code>、line 92）</li>
+</ul>
+</div>
+
+</div>
+</body>
+</html>
