@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notes-LocalLM — case2 実行結果報告書</title>
+  <style>
+    :root {
+      --bg: #0d1117; --panel: #161b22; --border: #30363d;
+      --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff;
+      --green: #3fb950; --red: #f85149; --yellow: #d29922;
+      --purple: #db61aa; --cyan: #39c5cf; --orange: #f0883e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+        "Hiragino Sans", Meiryo, sans-serif; background: var(--bg); color: var(--text);
+      line-height: 1.7;
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
+    header { border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 32px; }
+    h1 { font-size: 28px; margin: 0 0 8px; color: #fff; }
+    .subtitle { color: var(--muted); font-size: 15px; }
+    h2 {
+      font-size: 21px; margin: 44px 0 16px; padding-left: 14px;
+      border-left: 4px solid var(--accent); color: #fff;
+    }
+    h3 { font-size: 16px; margin: 28px 0 10px; color: var(--accent); }
+    p { margin: 10px 0; }
+    ul { padding-left: 22px; } li { margin: 6px 0; }
+    code {
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
+      padding: 1px 5px; font-size: 13px; color: var(--green);
+    }
+    pre {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+      padding: 16px 20px; overflow-x: auto; font-size: 13px; line-height: 1.5;
+    } pre code { background: none; border: none; padding: 0; color: var(--text); }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+    th, td { border: 1px solid var(--border); padding: 9px 12px; text-align: left; vertical-align: top; }
+    th { background: var(--panel); color: var(--accent); font-weight: 600; }
+    tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+    .card {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+      padding: 16px 20px; margin: 16px 0;
+    }
+    .note {
+      border-left: 3px solid var(--accent); background: rgba(88,166,255,0.08);
+      padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 12px 0; font-size: 14px;
+    }
+    .warn {
+      border-left: 3px solid var(--yellow); background: rgba(210,153,34,0.08);
+      padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 12px 0; font-size: 14px;
+    }
+    .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 20px; margin-right: 6px; }
+    .b-green { background: rgba(63,185,80,0.15); color: var(--green); }
+    .b-blue { background: rgba(88,166,255,0.15); color: var(--accent); }
+    .b-orange { background: rgba(240,136,62,0.15); color: var(--orange); }
+    .b-purple { background: rgba(219,97,170,0.15); color: var(--purple); }
+    .b-yellow { background: rgba(227,179,65,0.15); color: var(--yellow); }
+    .b-red { background: rgba(255,123,114,0.15); color: var(--red); }
+    .b-cyan { background: rgba(57,197,207,0.15); color: var(--cyan); }
+    .path { color: var(--cyan); font-family: monospace; }
+    .ja { font-size: 15px; }
+    .en { color: var(--muted); font-size: 13px; }
+    .metric-big { font-size: 30px; font-weight: 700; color: #fff; }
+    .correl { border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; margin: 14px 0; background: rgba(88,166,255,0.05); }
+    .arrow { color: var(--muted); margin: 0 4px; font-weight: bold; }
+    footer { border-top: 1px solid var(--border); margin-top: 48px; padding-top: 18px; color: var(--muted); font-size: 13px; }
+    .score { font-size: 22px; font-weight: 700; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Notes-LocalLM — case2 実行結果報告書</h1>
+    <div class="subtitle">
+      opencode × llama.cpp によるモデル検証（M4 24GB / macOS Tahoe 26.2.x）<br>
+      <span class="en">case2 Execution Report — opencode × llama.cpp model validation (M4 24GB / macOS Tahoe 26.2.x)</span>
+    </div>
+    <p class="en" style="margin-top:6px;">生成日: 2026-09-13 &nbsp;|&nbsp; 対象: Ornith-1.5-9B（Q4_K_M / Q8_0）、Qwen3.8-27B-UD-Q2_K_XL</p>
+  </header>
+
+  <!-- 1. case1 ログ分析 -->
+  <h2>1. case1 llama-server ログ分析 <span class="en">1. case1 llama-server Log Analysis</span></h2>
+  <div class="card">
+    <p class="ja">
+      case1 は <code>yaml2epub.py</code> の大規模リファクタリングを実施した際のログ（<span class="path">case1/20260911_1.log</span>、
+      <span class="path">case1/20260911_2.log</span>）である。このセッションは <b>Qwen3.8-27B-UD-Q2_K_XL</b> モデルで実行された。
+      本節では、コンテキストサイズ・時間経過と処理速度の逆相関、compaction、待ち時間を除く発生間隔などについて分析する。
+    </p>
+    <table>
+      <tr><th>項目</th><th>20260911_1.log</th><th>20260911_2.log</th></tr>
+      <tr><td>モデル</td><td>Qwen3.8-27B-UD-Q2_K_XL</td><td>Qwen3.8-27B-UD-Q2_K_XL</td></tr>
+      <tr><td>総トークン</td><td>—</td><td>37,799 → 38,523</td></tr>
+      <tr><td>生成速度 tg（ピーク→持続）</td><td>約 5.0 → 4.2 t/s</td><td>約 5.8 → 4.0 t/s</td></tr>
+      <tr><td>プロンプト処理速度</td><td>約 64 t/s</td><td>約 50 t/s</td></tr>
+      <tr><td>発生間隔（中央値）</td><td>約 178s</td><td>約 188s</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3 class="en">1.1 生成速度 tg の安定性 <span class="en">Generation speed (tg) stability</span></h3>
+    <p class="ja">
+      Qwen3.8-27B-UD-Q2_K_XL の最大の特徴は、<b>生成速度が極めて安定している</b>ことである。
+      1.log では <code>4.99 → 3.82 t/s</code>、2.log では <code>4.82 → 4.97 t/s</code> と、
+      全セッションを通じて <b>約 4-5 t/s</b> の帯域で推移する。
+      9B モデルの 10-15 t/s に比べ約 3 分の 1 の速度であり、27B の重量を反映している。
+    </p>
+    <table>
+      <tr><th>時分割</th><th>1.log 平均 tg</th><th>2.log 平均 tg</th></tr>
+      <tr><td>前半</td><td>4.74 t/s</td><td>4.69 t/s</td></tr>
+      <tr><td>中段</td><td>4.56 t/s</td><td>2.30 t/s（一時低下）</td></tr>
+      <tr><td>後段</td><td>4.18 t/s</td><td>3.27 t/s</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3 class="en">1.2 コンテキストサイズ・時間経過 vs 処理速度の逆相関 <span class="en">Inverse correlation: context/time vs speed</span></h3>
+    <div class="correl">
+      <p class="ja"><b>① 生成速度は時間経過（コンテキスト蓄積）に伴い緩やかに低下する</b></p>
+      <pre><code>1.log:  4.74 → 4.56 → 4.18 t/s   （-12% の低下）
+2.log:  4.69 → 2.30 → 3.27 t/s   （中段で一時低下、その後回復）
+
+  コンテキストが蓄積するにつれ、per-token 速度は反比例して低下する。
+  ただし 2.log は回復傾向を示し、24GB 環境では持続可能である。</code></pre>
+      <p class="en">Generation speed drifts down as context accumulates over time (1.log: -12%).
+        2.log dips mid-session then recovers — sustainable on 24GB.</p>
+    </div>
+    <div class="correl">
+      <p class="ja"><b>② プロンプト処理速度はより変動が大きく、ボトルネックとなる</b></p>
+      <pre><code>1.log:  63.68 → 39.95 → 40.80 t/s   （-37% の低下）
+2.log:  50.34 → 40.11 → 39.62 t/s
+
+  生成速度は安定但对話速度はプロンプト評価で制約される。
+  2-135 t/s の広範囲で変動し、実際の応答遅延の主要因である。</code></pre>
+      <p class="en">Prompt processing is the bottleneck (2-135 t/s), declining ~37%.
+        It is far more variable than generation and dominates perceived latency.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="en">1.3 発生間隔（待ち時間を除く実態） <span class="en">Occurrence interval (excluding waiting)</span></h3>
+    <table>
+      <tr><th>指標</th><th>20260911_1.log</th><th>20260911_2.log</th></tr>
+      <tr><td>中央値（実処理間隔）</td><td>約 178s</td><td>約 188s</td></tr>
+      <tr><td>平均（待ち込み込み）</td><td>約 711s</td><td>約 866s</td></tr>
+      <tr><td>平均÷中央値（待ちの膨らみ）</td><td>4.0×</td><td>4.6×</td></tr>
+    </table>
+    <div class="note">
+      <p class="ja"><b>考察</b>（<span class="en"><b>Takeaway</b></span>）</p>
+      <p class="ja">
+        中央値（約 180s）が「待ち時間を除いた実処理間隔」を表す。
+        平均は長時間の待機（ユーザープロンプト間のアイドル時間）で 4-4.6 倍に膨らむ。
+        実際の処理負荷は中央値で評価すべきであり、平均値は待機ノイズを含む。
+        生成/プロンプト処理のイベント比は約 14-16:1 で、生成が主体である。
+      </p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="en">1.4 Compaction <span class="en">Compaction</span></h3>
+    <div class="warn">
+      <p class="ja"><b>注意</b>（<span class="en"><b>Note</b></span>）</p>
+      <p class="ja">
+        このログは <b>llama-server の出力</b>であり、opencode 側で実施される compaction イベントは記録されていない。
+        <code>compaction.auto</code> や <code>limit.context/output/input</code> の設定もログ内には見られない。
+        compaction の影響は「プロンプト処理速度」の低下として間接的に反映されていると解釈する。
+      </p>
+    </div>
+    <p class="en">These are llama-server logs; opencode-level compaction events are not captured.
+      Compaction overhead is inferred from declining prompt-processing speed.</p>
+  </div>
+
+  <div class="card">
+    <h3 class="en">1.5 Qwen3.8-27B-UD-Q2_K_XL の傾向と考察 <span class="en">Trends &amp; Reflections: Qwen3.8-27B-UD-Q2_K_XL</span></h3>
+    <ul>
+      <li><span class="tag b-blue">安定生成</span>
+        <span class="en">Stable generation:</span> 約 4-5 t/s を全セッション維持。長時間タスクでも破綻しない。</span></li>
+      <li><span class="tag b-orange">プロンプト評価がボトルネック</span>
+        <span class="en">Prompt eval bottleneck:</span> 生成は安定但对話速度はプロンプト評価で制約。大量プロンプトは応答遅延を招く。</span></li>
+      <li><span class="tag b-purple">コンテキスト蓄積で速度低下</span>
+        <span class="en">Context growth slows speed:</span> 時間経過に伴い per-token 速度が反比例して低下（1.log: -12%）。</span></li>
+      <li><span class="tag b-green">待機ノイズを除外すべき</span>
+        <span class="en">Exclude waiting noise:</span> 中央値（180s）が実処理間隔。平均は待機で 4-4.6 倍膨らむ。</span></li>
+    </ul>
+  </div>
+
+  <!-- 2. 環境 -->
+  <h2>2. 環境とセットアップ <span class="en">2. Environment & Setup</span></h2>
+  <div class="card">
+    <p class="ja">
+      検証は MacBook Air M4（メモリ 24GB / SSD 512GB）で macOS Tahoe 26.2.x の環境下で行った。
+      ツールチェーンは <code>llama.cpp</code>（<code>llama-cli --version</code> → <code>version: 0.4.0</code>、
+      AppleClang 21.0.0）と <code>opencode 1.18.30</code>。
+    </p>
+    <table>
+      <tr><th>項目</th><th>値</th><th>項目</th><th>値</th></tr>
+      <tr><td>デバイス</td><td>MacBook Air M4</td><td>llama.cpp</td><td>0.4.0（build 10809）</td></tr>
+      <tr><td>メモリ</td><td>24GB</td><td>コンパイラ</td><td>AppleClang 21.0.0.21000101 / Darwin arm64</td></tr>
+      <tr><td>OS</td><td>macOS Tahoe 26.2.x</td><td>opencode</td><td>1.18.30</td></tr>
+      <tr><td>SSD</td><td>512GB</td><td>実行ポート</td><td>127.0.0.1:8080（単一）</td></tr>
+    </table>
+  </div>
+  <div class="note">
+    <p class="ja"><b>サーバーの起動/停止/ログ確認</b>（<span class="en"><b>Server lifecycle</b></span>）</p>
+    <pre><code># 起動（nohup でログへ redirect）
+nohup ~/path/to/case2/*.sh &gt; ~/llama-models/log/DATE.log 2&gt;&amp;1 &amp;
+
+# 停止（ポート 8080 を占有するプロセスを kill）
+kill $(lsof -t -i:8080)
+
+# ログを tail
+less +F ~/llama-models/log/DATE.log</code></pre>
+    <p class="en">All servers bind the single port <code>127.0.0.1:8080</code> — only one can run at a time.</p>
+  </div>
+
+  <!-- 2. ナラティブ -->
+  <h2>3. case1 → case2 の流れ <span class="en">3. Narrative: case1 → case2</span></h2>
+  <div class="card">
+    <p class="ja">
+      <span class="tag b-blue">case1</span>
+      <code>word2epub</code> リポジトリにある大きな単一ファイル <code>yaml2epub.py</code> のリファクタリングを試みた。
+      この過程で、<b>メモリ配分・使用量・安定動作させるオプション指定・起動パラメータの模索</b>が目的だった。
+      長時間の AI コーディングを M4 24GB で可能にした、<b>メモリスワップしない安定動作の条件</b>を特定した。
+    </p>
+    <p class="ja">
+      <span class="tag b-green">case2</span>
+      case1 で得たオプション指定を base に、<b>Qwen3.8-27B 以外のモデルが使い物になるか</b>、
+      <b>異なるオプション（値）が有効なのか</b>を確認することを目的とした。
+      目的が「別モデルの挙動確認」に変わるため、<span class="path">mactop</span> リポジトリを clone し、
+      GPU 使用率・DRAM 帯域・プロセスメモリなどについて調査タスクを実行した。
+    </p>
+    <div class="warn">
+      <p class="ja"><b>区切り</b>（<span class="en"><b>Milestone</b></span>）</p>
+      <p class="ja">case1 で長時間 AI コーディングが実行できたと判断し、case を区切りとした。
+      case2 では複数のモデル・オプションで検証データを収集し、本报告にまとめる。</p>
+    </div>
+  </div>
+
+  <!-- 3. 設定 -->
+  <h2>4. モデルごとの設定 <span class="en">4. Per-model Configuration</span></h2>
+  <div class="card">
+    <table>
+      <tr><th>モデル</th><th>量子化</th><th>ctx-size</th><th>KV cache</th><th>temp</th><th>gguf 経路</th></tr>
+      <tr>
+        <td><b>Ornith-1.5-9B-Q4_K_M</b></td>
+        <td>Q4_K_M</td><td>131072 <span class="en">128K</span></td>
+        <td>Q8_0</td><td>0.6</td>
+        <td><span class="path">~/llama-models/Ornith-1.5-9B-Q4_K_M.gguf</span></td>
+      </tr>
+      <tr>
+        <td><b>Ornith-1.5-9B-Q8_0</b></td>
+        <td>Q8_0</td><td>81920 <span class="en">80K</span></td>
+        <td>Q8_0</td><td>0.6</td>
+        <td><span class="path">~/llama-models/Ornith-1.5-9B-Q8_0.gguf</span></td>
+      </tr>
+      <tr>
+        <td><b>Qwen3.8-27B-UD-Q2_K_XL</b></td>
+        <td>Q2_K_XL</td><td>81920 <span class="en">80K</span></td>
+        <td>Q8_0</td><td>0.7</td>
+        <td><span class="path">~/llama-models/Qwen3.8-27B-UD-Q2_K_XL.gguf</span></td>
+      </tr>
+    </table>
+    <p class="en">Common flags across all scripts: <code>--flash-attn on</code>, <code>--n-gpu-layers 99</code>,
+      <code>-b 2048 -ub 512</code>, <code>--reasoning-preserve</code>, <code>--jinja</code>,
+      <code>--cache-type-k q8_0 --cache-type-v q8_0</code>, <code>--parallel 1</code>.
+      27B thinking: <code>--temp 1.0</code>; instruct/non-thinking: <code>--temp 0.7 --presence-penalty 1.5</code>.</p>
+  </div>
+
+  <!-- 4. パフォーマンス -->
+  <h2>5. パフォーマンス比較と相関分析 <span class="en">5. Performance Comparison &amp; Correlation Analysis</span></h2>
+  <div class="card">
+    <p class="ja"><b>概算値</b>（<span class="en"><b>Approximate values</b></span>）— ログから抽出。
+      <code>tg</code> は 100 トークンごとの瞬間速度で変動するため、ピーク/持続を要約した。</p>
+    <table>
+      <tr><th>モデル</th><th>約 tokens/s（ピーク→持続）</th><th>総トークン</th><th>役割</th></tr>
+      <tr>
+        <td>Ornith-1.5-9B-Q4_K_M</td>
+        <td><b>約 11 → 15.4</b></td>
+        <td>4304 <span class="en">（最終タスク）</span></td>
+        <td>リファクタリング系・長時間生成</td>
+      </tr>
+      <tr>
+        <td>Ornith-1.5-9B-Q8_0</td>
+        <td><b>約 10 → 10.7</b> <span class="en">（平坦）</span></td>
+        <td>7667 <span class="en">（最多）</span></td>
+        <td>高精度・大容量生成</td>
+      </tr>
+      <tr>
+        <td>Qwen3.8-27B-UD-Q2_K_XL</td>
+        <td><b>約 4 → 6.6</b></td>
+        <td>261 <span class="en">（調査タスク・短）</span></td>
+        <td>mactop 調査（分析系）</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3 class="en">4.1 相関分析 <span class="en">Correlation Analysis</span></h3>
+
+    <div class="correl">
+      <p class="ja"><b>① モデルサイズ ↑ → 処理速度 ↓（明確な逆比例）</b></p>
+      <pre><code>Ornith-9B-Q4  ≈ 15 t/s
+Ornith-9B-Q8  ≈ 10 t/s
+Qwen-27B-Q2   ≈  4.5 t/s   （平均）
+
+  27B は 9B の約 3.3 倍遅い。
+  9B-Q8 は 9B-Q4 の約 0.67 倍の速度。</code></pre>
+      <p class="en">Clear inverse proportionality: speed drops as parameter count rises.
+        27B ≈ 3.3× slower than 9B-Q4; 9B-Q8 ≈ 0.67× the speed of 9B-Q4.</p>
+    </div>
+
+    <div class="correl">
+      <p class="ja"><b>② 同一サイズで 量子化 ↑ → 速度 ↓ だが 容量 ↑（トレードオフ）</b></p>
+      <pre><code>9B-Q4:  15 t/s  →  4304 tokens
+9B-Q8:  10 t/s  →  7667 tokens   （約 1.78 倍のトークン容量）
+
+  速度比  Q4:Q8 = 15:10 = 1.5 : 1.0
+  容量比  Q4:Q8 = 4304:7667 = 1.0 : 1.78</code></pre>
+      <p class="en">At fixed size, higher quantization precision costs speed but buys capacity:
+        Q8 runs 33% slower yet generates 1.78× more tokens — speed vs capacity trade-off.</p>
+    </div>
+
+    <div class="correl">
+      <p class="ja"><b>③ コンテキスト/内容サイズ ↑ → per-token 速度 ↓（ウォームアップ傾向）</b></p>
+      <pre><code>Q4_K_M:  11.0 t/s （初期） → 15.4 t/s （ピーク）  上昇
+Qwen 27B: 3.8 t/s  （初期） → 6.6 t/s  （ピーク）  上昇
+Q8_0:    10.0 t/s  （ほぼ平坦）
+
+  初期はプロンプト評価が重い → 以降、プロンプトキャッシュで生成速度が安定/上昇。</code></pre>
+      <p class="en">Throughput rises as the prompt cache warms; Q8_0 stays flat (~10 t/s) because it
+        sustains longer total tokens, keeping KV pressure steady.</p>
+    </div>
+
+    <div class="note">
+      <p class="ja"><b>結論</b>（<span class="en"><b>Takeaway</b></span>）</p>
+      <p class="ja">
+        モデルサイズと速度は明確に反比例するが、<b>24GB 環境では 9B が 27B より圧倒的に速く</b>、
+        長時間生成に有利。Q4 vs Q8 は「速度 vs 精度/容量」のトレードオフで、
+        <b>大容量・長時間出力には Q8_0、速度優先なら Q4_K_M</b>が選べる。
+        コンテキスト成長に伴う速度低下はプロンプトキャッシュで相殺され、
+        安定して動作することが確認できた。
+      </p>
+    </div>
+  </div>
+
+  <!-- 5. 考察 -->
+  <h2>6. 考察: M4 24GB で安定動作するモデル/オプション <span class="en">6. Reflections: Stable configs on M4 24GB</span></h2>
+  <div class="card">
+    <p class="ja">
+      case1 で特定した、<b>メモリスワップしない安定動作の条件</b>を base として、各モデルの妥当性を評価する。
+    </p>
+    <table>
+      <tr><th>条件</th><th>内容</th></tr>
+      <tr><td>llama-server 推奨</td><td><span class="en">Recommended</span> <code>Qwen3.8-27B-UD-Q2_K_XL</code>、KVキャッシュ <code>Q8_0</code>、コンテキスト <code>80K</code></td></tr>
+      <tr><td>opencode.json</td><td><code>compaction.auto</code> を明示的に <code>true</code> に、各 model に <code>limit.context/output/input</code> を追記</td></tr>
+      <tr><td>共有フラグ</td><td><code>--flash-attn on</code>, <code>--n-gpu-layers 99</code>, <code>-b 2048 -ub 512</code>, <code>--reasoning-preserve</code>, <code>--jinja</code></td></tr>
+    </table>
+    <ul>
+      <li><span class="tag b-green">Ornith-1.5-9B-Q4_K_M</span>
+        <span class="en">Fastest (15 t/s peak). Best for long coding loops where latency matters. 128K context fits 24GB.</span></li>
+      <li><span class="tag b-blue">Ornith-1.5-9B-Q8_0</span>
+        <span class="en">Highest token capacity (7667) at flat 10 t/s. Better precision; slightly heavier on memory.</span></li>
+      <li><span class="tag b-orange">Qwen3.8-27B-UD-Q2_K_XL</span>
+        <span class="en">Slowest (4–6.6 t/s) but highest reasoning quality. Suits analysis/investigation tasks, not long generation.</span></li>
+    </ul>
+    <div class="warn">
+      <p class="ja"><b>留意点</b>（<span class="en"><b>Caveat</b></span>）</p>
+      <p class="ja">27B は速度が 9B の約 1/3 であり、長時間生成には不向き。
+        分析・調査タスク（mactop 調査など）では出力量が小さいため、速度より品質が優先される。</p>
+    </div>
+  </div>
+
+  <!-- 6. HTML 評価 -->
+  <h2>7. 生成HTMLの評価: モデルごとの傾向 <span class="en">7. Generated HTML Evaluation — Per-model Trends</span></h2>
+  <div class="card">
+    <p class="ja">
+      各モデルが生成した <span class="path">mactop-*.html</span> を、<b>見出し・構造・表の網羅性</b>の観点でサマリー評価する。
+    </p>
+    <table>
+      <tr><th>モデル</th><th>見出し</th><th>構造</th><th>表の網羅性</th><th>総合</th></tr>
+      <tr>
+        <td><b>Qwen3.8-27B</b></td>
+        <td>5 節（ID 付き）</td>
+        <td>目次（TOC）付き・warn/flow 構文</td>
+        <td>優先順位チェーン・対比表</td>
+        <td><span class="tag b-green">A</span></td>
+      </tr>
+      <tr>
+        <td><b>Ornith-1.5-9B-Q4_K_M</b></td>
+        <td>6 節（番号付き）</td>
+        <td>カード・タグ・フロー</td>
+        <td>テーブル（順位表）</td>
+        <td><span class="tag b-blue">B</span></td>
+      </tr>
+      <tr>
+        <td><b>Ornith-1.5-9B-Q8_0</b></td>
+        <td>8 節（ID 付き）</td>
+        <td>目次・callout/badge/flow</td>
+        <td>複数テーブル・対比表</td>
+        <td><span class="tag b-cyan">A-</span></td>
+      </tr>
+    </table>
+    <div class="note">
+      <p class="ja"><b>評価サマリー</b>（<span class="en"><b>Summary</b></span>）</p>
+      <p class="ja">
+        全モデルとも GPU 使用率・DRAM 帯域・プロセスメモリ・top 対比を網羅している。
+        <b>Q8_0</b> は節数・構文タグ（callout/badge/flow）が最も多く、網羅性と可視化で優れる。
+        <b>Qwen3.8-27B</b> は ID 付き見出し・TOC・優先順位チェーンの論理構成が明確。
+        <b>Q4_K_M</b> はカード/タグ形式で簡潔だが、表の項目数がやや少ない。
+      </p>
+    </div>
+  </div>
+
+  <!-- 7. 結論 -->
+  <h2>8. 結論 <span class="en">8. Conclusion</span></h2>
+  <div class="card">
+    <ul>
+      <li><span class="tag b-green">速度優先</span>
+        <span class="en">Speed-first:</span> <code>Ornith-1.5-9B-Q4_K_M</code>（128K ctx, 約 15 t/s）。</li>
+      <li><span class="tag b-blue">大容量/高精度</span>
+        <span class="en">High capacity/precision:</span> <code>Ornith-1.5-9B-Q8_0</code>（約 7667 tokens, 平坦 10 t/s）。</li>
+      <li><span class="tag b-orange">品質優先</span>
+        <span class="en">Quality-first:</span> <code>Qwen3.8-27B-UD-Q2_K_XL</code>（分析タスク、約 4.5 t/s）。</li>
+      <li><span class="tag b-purple">安定動作</span>
+        <span class="en">Stability:</span> case1 で得た KV-cache Q8_0 @ 80K + <code>compaction.auto=true</code> + per-model limits を踏襲。</li>
+    </ul>
+    <p class="en">On 24GB M4, 9B models dominate for long coding; 27B excels at analysis. Prompt caching keeps per-token speed stable as context grows.</p>
+  </div>
+
+  <div class="card">
+    <h3 class="en">補足・参考: Qwen3.8-27B-UD-Q2_K_XL のパフォーマンス傾向 <span class="en">Appendix — Qwen3.8-27B-UD-Q2_K_XL performance trends</span></h3>
+    <p class="ja">
+      case1（<code>yaml2epub.py</code> リファクタリング、<span class="path">case1/20260911_*.log</span>）で得た
+      Qwen3.8-27B-UD-Q2_K_XL の定量的傾向を補足する。生成速度の安定性・コンテキスト蓄積に伴う速度低下・
+      プロンプト評価のボトルネック・待ち時間を除く発生間隔についてまとめた。
+    </p>
+    <table>
+      <tr><th>指標</th><th>20260911_1.log</th><th>20260911_2.log</th></tr>
+      <tr><td>総トークン</td><td>—</td><td>37,799 → 38,523</td></tr>
+      <tr><td>生成速度 tg（帯域）</td><td>約 3.8-5.0 t/s</td><td>約 3.6-5.9 t/s</td></tr>
+      <tr><td>プロンプト処理速度</td><td>約 28-83 t/s</td><td>約 31-68 t/s</td></tr>
+      <tr><td>発生間隔（中央値）</td><td>約 178s</td><td>約 188s</td></tr>
+      <tr><td>発生間隔（平均、待機込み）</td><td>約 711s</td><td>約 866s</td></tr>
+      <tr><td>生成:プロンプト イベント比</td><td>約 16:1</td><td>約 14:1</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3 class="en">補足・参考: 逆相関の定量的根拠 <span class="en">Appendix — Inverse-correlation evidence</span></h3>
+    <div class="correl">
+      <p class="ja"><b>コンテキスト蓄積 vs 生成速度（時間経過）</b></p>
+      <pre><code>20260911_1.log:
+  前半 4.74 t/s → 中段 4.56 t/s → 後段 4.18 t/s   （-12%）
+20260911_2.log:
+  前半 4.69 t/s → 中段 2.30 t/s → 後段 3.27 t/s   （中段で一時低下、回復）
+
+  コンテキストが蓄積するにつれ per-token 速度は反比例して低下する。
+  24GB 環境では回復傾向が見られ、持続可能。</code></pre>
+      <p class="en">Generation speed declines ~12% as context accumulates (1.log); 2.log dips then recovers.
+        Per-token speed is inversely correlated with context growth.</p>
+    </div>
+    <div class="correl">
+      <p class="ja"><b>プロンプト処理速度（ボトルネック）</b></p>
+      <pre><code>20260911_1.log: 63.68 → 39.95 → 40.80 t/s   （-37%）
+20260911_2.log: 50.34 → 40.11 → 39.62 t/s
+
+  生成は安定但对話速度はプロンプト評価で制約される。
+  2-135 t/s の広範囲変動が実応答遅延の主要因。</code></pre>
+      <p class="en">Prompt processing is the bottleneck, declining ~37%. Its 2-135 t/s variance dominates perceived latency.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="en">補足・参考: 発生間隔の解釈（待ち時間除外） <span class="en">Appendix — Occurrence interval interpretation (excluding waiting)</span></h3>
+    <table>
+      <tr><th>指標</th><th>20260911_1.log</th><th>20260911_2.log</th></tr>
+      <tr><td>中央値（実処理間隔）</td><td>約 178s</td><td>約 188s</td></tr>
+      <tr><td>平均（待機込み）</td><td>約 711s</td><td>約 866s</td></tr>
+      <tr><td>平均 ÷ 中央値（待機の膨らみ）</td><td>4.0×</td><td>4.6×</td></tr>
+    </table>
+    <p class="en">Median (~180s) reflects actual processing; the mean is inflated 4-4.6× by idle time between user prompts. Evaluate load by median, not mean.</p>
+  </div>
+
+  <div class="card">
+    <h3 class="en">補足・参考: 考察 <span class="en">Appendix — Reflections</span></h3>
+    <ul>
+      <li><span class="tag b-blue">安定生成</span>
+        <span class="en">Stable generation:</span> 約 4-5 t/s を長時間タスクでも維持。27B の重量を反映。</span></li>
+      <li><span class="tag b-orange">プロンプト評価がボトルネック</span>
+        <span class="en">Prompt eval bottleneck:</span> 大量プロンプトは応答遅延を招く。プロンプトキャッシュが有効。</span></li>
+      <li><span class="tag b-purple">コンテキスト蓄積で速度低下</span>
+        <span class="en">Context growth slows speed:</span> 時間経過に伴い per-token 速度が反比例して低下。</span></li>
+      <li><span class="tag b-green">待機ノイズを除外すべき</span>
+        <span class="en">Exclude waiting noise:</span> 中央値が実処理間隔。平均は待機で 4-4.6 倍膨らむ。</span></li>
+      <li><span class="tag b-red">Compaction はログに記録されない</span>
+        <span class="en">Compaction not logged:</span> llama-server ログは opencode 側 compaction イベントを記録しない。プロンプト速度の低下で間接推測。</span></li>
+    </ul>
+    <p class="en">Qwen3.8-27B-UD-Q2_K_XL is the analysis-task choice on 24GB: stable but slow, prompt-eval bound, context-growth sensitive. Prompt caching and compaction mitigate latency.</p>
+  </div>
+
+  <footer>
+    <p>Notes-LocalLM — case2 実行結果報告書 &nbsp;|&nbsp; 生成日: 2026-09-13</p>
+    <p class="en">Source: case2/*.log (perf), case2/*.sh (config), case2/mactop-*.html (generated reports)</p>
+  </footer>
+
+</div>
+</body>
+</html>
